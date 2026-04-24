@@ -1,7 +1,3 @@
-"""
-Aplicación Flask para visualizar y ejecutar ejercicios de Sistemas Distribuidos
-"""
-
 from flask import Flask, render_template, jsonify, request
 import threading
 import subprocess
