@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ejercicios</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .ejercicios {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .ejercicio {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+        }
+
+        .ejercicio h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #0099ff;
+        }
+
+        button {
+            background: #0066cc;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background: #0052a3;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .resultado {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: none;
+        }
+
+        .resultado.visible {
+            display: block;
+            border-color: #0066cc;
+        }
+
+        .resultado.error {
+            border-color: #cc0000;
+        }
+
+        .resultado.success {
+            border-color: #00cc00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ejercicios</h1>
+        <div class="ejercicios" id="ejercicios"></div>
+    </div>
+
+    <script>
+        async function cargarEjercicios() {
+            const response = await fetch('/api/ejercicios');
+            const ejercicios = await response.json();
+            
+            const contenedor = document.getElementById('ejercicios');
+            
+            ejercicios.forEach(ejercicio => {
+                const div = document.createElement('div');
+                div.className = 'ejercicio';
+                div.innerHTML = `
+                    <h2>${ejercicio.nombre}</h2>
+                    <button onclick="ejecutar('${ejercicio.id}')">Ejecutar</button>
+                    <div class="resultado" id="resultado-${ejercicio.id}"></div>
+                `;
+                contenedor.appendChild(div);
+            });
+        }
+
+        async function ejecutar(id) {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Ejecutando...';
+            
+            const inicio = Date.now();
+            
+            try {
+                await fetch(`/api/ejecutar/${id}`, { method: 'POST' });
+                
+                let completado = false;
+                while (!completado) {
+                    const status = await fetch('/api/status').then(r => r.json());
+                    if (status.status === 'completed' || status.status === 'error') {
+                        completado = true;
+                    }
+                    if (!completado) await new Promise(r => setTimeout(r, 500));
+                }
+                
+                const resultado = await fetch(`/api/resultados/${id}`).then(r => r.json());
+                const tiempo = Date.now() - inicio;
+                
+                let salida = resultado.stdout || '';
+                if (resultado.stderr) {
+                    salida += '\n[STDERR]\n' + resultado.stderr;
+                }
+                
+                const resultadoDiv = document.getElementById(`resultado-${id}`);
+                resultadoDiv.textContent = salida;
+                resultadoDiv.classList.add('visible');
+                resultadoDiv.classList.add(resultado.exito ? 'success' : 'error');
+                
+            } catch (error) {
+                const resultadoDiv = document.getElementById(`resultado-${id}`);
+                resultadoDiv.textContent = 'Error: ' + error.message;
+                resultadoDiv.classList.add('visible', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Ejecutar';
+            }
+        }
+
+        cargarEjercicios();
+    </script>
+</body>
+</html>
